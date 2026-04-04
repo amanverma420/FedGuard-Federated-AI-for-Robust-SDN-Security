@@ -1,15 +1,11 @@
-"""
-utils/logger.py - Centralized logging for FedGuard
-"""
 import logging
 import sys
-from datetime import datetime
+
 
 def get_logger(name: str, level: str = "INFO") -> logging.Logger:
     logger = logging.getLogger(name)
     if logger.handlers:
-        return logger  # Already configured
-
+        return logger
     logger.setLevel(getattr(logging, level.upper(), logging.INFO))
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)

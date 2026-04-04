@@ -1,6 +1,3 @@
-"""
-federated/client.py - FL Client with FedProx (final version)
-"""
 import copy
 import numpy as np
 import torch
@@ -15,8 +12,7 @@ import config
 logger = get_logger("FL-Client")
 
 
-def train_fedprox(model, global_weights, X, y, optimizer, mu=0.01,
-                  batch_size=128, device="cpu"):
+def train_fedprox(model, global_weights, X, y, optimizer, mu=0.01, batch_size=128, device="cpu"):
     model.train()
     model.to(device)
     global_tensors = [torch.tensor(w, dtype=torch.float32).to(device) for w in global_weights]
@@ -28,7 +24,7 @@ def train_fedprox(model, global_weights, X, y, optimizer, mu=0.01,
     for xb, yb in loader:
         optimizer.zero_grad()
         ce_loss = criterion(model(xb), yb)
-        prox = sum(torch.sum((lp - gp)**2) for lp, gp in zip(model.parameters(), global_tensors))
+        prox = sum(torch.sum((lp - gp) ** 2) for lp, gp in zip(model.parameters(), global_tensors))
         loss = ce_loss + (mu / 2.0) * prox
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -39,14 +35,14 @@ def train_fedprox(model, global_weights, X, y, optimizer, mu=0.01,
 
 class FederatedClient:
     def __init__(self, client_id, X_local, y_local):
-        self.client_id      = client_id
-        self.X_local        = X_local
-        self.y_local        = y_local
-        self.n_samples      = len(X_local)
+        self.client_id = client_id
+        self.X_local = X_local
+        self.y_local = y_local
+        self.n_samples = len(X_local)
         self.global_weights = None
-        self.model          = IntrusionDetector()
-        self.optimizer      = optim.SGD(self.model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
-        self.encryptor      = GradientEncryptor()
+        self.model = IntrusionDetector()
+        self.optimizer = optim.SGD(self.model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
+        self.encryptor = GradientEncryptor()
         logger.info(f"Client {client_id} | samples={self.n_samples} | params={self.model.count_parameters():,}")
 
     def receive_global_weights(self, global_weights):
@@ -56,8 +52,10 @@ class FederatedClient:
     def local_train(self):
         losses = []
         for _ in range(config.LOCAL_EPOCHS):
-            loss = train_fedprox(self.model, self.global_weights, self.X_local, self.y_local,
-                                 self.optimizer, mu=0.01, batch_size=config.LOCAL_BATCH_SIZE, device=config.DEVICE)
+            loss = train_fedprox(
+                self.model, self.global_weights, self.X_local, self.y_local,
+                self.optimizer, mu=0.01, batch_size=config.LOCAL_BATCH_SIZE, device=config.DEVICE
+            )
             losses.append(loss)
         avg_loss = float(np.mean(losses))
         logger.debug(f"Client {self.client_id} | loss={avg_loss:.4f}")
@@ -66,8 +64,13 @@ class FederatedClient:
             noisy = self.encryptor.add_differential_privacy_noise(raw_grads, std=config.GRADIENT_NOISE_STD)
             enc = self.encryptor.encrypt_gradients(noisy)
             _ = self.encryptor.decrypt_gradients(enc)
-        return {"client_id": self.client_id, "gradients": raw_grads,
-                "weights": self.model.get_weights(), "n_samples": self.n_samples, "train_loss": avg_loss}
+        return {
+            "client_id": self.client_id,
+            "gradients": raw_grads,
+            "weights": self.model.get_weights(),
+            "n_samples": self.n_samples,
+            "train_loss": avg_loss
+        }
 
     def evaluate_local(self):
         return evaluate_model(self.model, self.X_local, self.y_local)

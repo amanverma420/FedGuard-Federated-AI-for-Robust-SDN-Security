@@ -53,6 +53,35 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Interactive GUI
+For an interactive, user-friendly experience:
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+# Or use the launcher:
+python launch_gui.py
+```
+Or after installation:
+```bash
+pip install -e .
+fedguard-gui
+```
+
+The GUI provides:
+- 🔧 **Configuration Panel**: Adjust all parameters interactively
+- 🚀 **Pipeline Runner**: Execute training with real-time progress
+- 📊 **Results Dashboard**: View metrics, plots, and analysis
+- 🎯 **Real-time Demo**: Simulate live traffic detection and mitigation
+
+### GUI Features
+- **Modern Dark Theme**: Cool, professional interface with gradient accents
+- **Real-time Updates**: Live progress bars and status updates during training
+- **Interactive Plots**: Matplotlib integration for training curves and analysis
+- **Parameter Tuning**: Sliders and inputs for all configuration options
+- **Live Demo**: Real-time attack simulation with detection and mitigation
+- **Results Analysis**: Confusion matrices, performance metrics, and insights
+- **Responsive Design**: Works on desktop and mobile browsers
+
 ## Pipeline
 1. Data loading & preprocessing (synthetic if datasets unavailable)
 2. Federated Learning across 5 simulated SDN controllers

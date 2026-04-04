@@ -1,0 +1,13 @@
+[global]
+developmentMode = false
+
+[logger]
+level = "info"
+
+[theme]
+base = "dark"
+primaryColor = "#667eea"
+backgroundColor = "#0d1117"
+secondaryBackgroundColor = "#161b22"
+textColor = "#e6edf3"
+font = "sans serif"

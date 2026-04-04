@@ -1,6 +1,3 @@
-"""
-federated/aggregator.py - Byzantine-fault-tolerant gradient aggregation
-"""
 import numpy as np
 from utils.logger import get_logger
 
@@ -33,10 +30,9 @@ def krum(client_updates, num_byzantine=1):
     flat = [flatten(u) for u in client_updates]
     scores = []
     for i in range(n):
-        dists = sorted(float(np.sum((flat[i]-flat[j])**2)) for j in range(n) if i!=j)
-        scores.append(sum(dists[:n-f-2]))
+        dists = sorted(float(np.sum((flat[i] - flat[j]) ** 2)) for j in range(n) if i != j)
+        scores.append(sum(dists[:n - f - 2]))
     idx = int(np.argmin(scores))
-    logger.debug(f"Krum selected client {idx} (score={scores[idx]:.4f})")
     return client_updates[idx]["weights"]
 
 
@@ -59,12 +55,9 @@ def aggregate(client_updates, strategy=None):
     import config
     strategy = strategy or config.BYZANTINE_DEFENSE
     logger.info(f"Aggregating {len(client_updates)} updates | strategy='{strategy}'")
-    if strategy == "fedavg":
-        return fedavg(client_updates)
-    elif strategy == "krum":
+    if strategy == "krum":
         return krum(client_updates, num_byzantine=config.NUM_BYZANTINE)
     elif strategy == "trimmed_mean":
         return trimmed_mean(client_updates)
     else:
-        logger.warning(f"Unknown strategy '{strategy}', using FedAvg.")
         return fedavg(client_updates)
