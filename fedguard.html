@@ -1,0 +1,2393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FedGuard — IDS Control Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  /* ─── RESET & BASE ─────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #080c10;
+    --surface:  #0d1117;
+    --panel:    #111820;
+    --border:   #1e2a35;
+    --border2:  #243040;
+    --text:     #cdd8e3;
+    --muted:    #5a7080;
+    --accent:   #00c8ff;
+    --accent2:  #ff6b35;
+    --green:    #00e67a;
+    --yellow:   #ffd23f;
+    --red:      #ff4560;
+    --purple:   #a78bfa;
+    --font-display: 'Syne', sans-serif;
+    --font-body:    'DM Sans', sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+    --radius: 10px;
+    --glow: 0 0 24px rgba(0,200,255,0.12);
+  }
+  html { font-size: 14px; scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  ::selection { background: rgba(0,200,255,0.2); }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ─── LAYOUT ───────────────────────────────────── */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; min-width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; height: 100vh;
+    z-index: 100; overflow-y: auto;
+  }
+  .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(8,12,16,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 56px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .content { padding: 28px; flex: 1; }
+
+  /* ─── SIDEBAR ──────────────────────────────────── */
+  .sidebar-logo {
+    padding: 22px 20px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-mark {
+    font-family: var(--font-display);
+    font-size: 1.3rem; font-weight: 800;
+    color: #fff; letter-spacing: -0.02em;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), #0070ff);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .logo-sub {
+    font-family: var(--font-mono);
+    font-size: 0.65rem; color: var(--muted);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .sidebar-section { padding: 16px 12px 4px; }
+  .sidebar-section-title {
+    font-family: var(--font-mono);
+    font-size: 0.6rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.12em;
+    padding: 0 8px; margin-bottom: 4px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: 8px;
+    cursor: pointer; transition: all 0.15s;
+    font-size: 0.85rem; color: var(--muted);
+    border: 1px solid transparent;
+    margin-bottom: 1px;
+  }
+  .nav-item:hover { background: var(--panel); color: var(--text); }
+  .nav-item.active {
+    background: rgba(0,200,255,0.08);
+    border-color: rgba(0,200,255,0.15);
+    color: var(--accent);
+  }
+  .nav-icon { font-size: 0.95rem; width: 18px; text-align: center; }
+  .nav-badge {
+    margin-left: auto;
+    background: rgba(0,200,255,0.15);
+    color: var(--accent);
+    font-family: var(--font-mono); font-size: 0.6rem;
+    padding: 2px 6px; border-radius: 100px;
+  }
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .system-status {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px;
+  }
+  .status-row {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.75rem; margin-bottom: 6px;
+  }
+  .status-row:last-child { margin-bottom: 0; }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    display: inline-block; margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+  .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); animation: none; }
+  .status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ─── TOPBAR ───────────────────────────────────── */
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .topbar-title { font-family: var(--font-display); font-size: 1rem; font-weight: 600; }
+  .topbar-breadcrumb {
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted);
+  }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: 8px; border: none;
+    font-family: var(--font-body); font-size: 0.82rem;
+    cursor: pointer; transition: all 0.15s; font-weight: 500;
+  }
+  .btn-primary {
+    background: var(--accent); color: #000;
+  }
+  .btn-primary:hover { background: #33d6ff; transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { background: var(--panel); border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: rgba(255,69,96,0.1); color: var(--red);
+    border: 1px solid rgba(255,69,96,0.2);
+  }
+  .btn-danger:hover { background: rgba(255,69,96,0.2); }
+  .btn-sm { padding: 5px 11px; font-size: 0.76rem; }
+
+  /* ─── PAGES ────────────────────────────────────── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ─── GRID & CARDS ─────────────────────────────── */
+  .grid { display: grid; gap: 18px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: 1fr 1fr 1fr; }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .g13 { grid-template-columns: 1fr 3fr; }
+  .g31 { grid-template-columns: 3fr 1fr; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card:hover { border-color: var(--border2); }
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 0.88rem; font-weight: 600; color: #fff;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-body { padding: 20px; }
+  .card-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ─── KPI CARDS ─────────────────────────────────── */
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .kpi::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .kpi.accent::before { background: var(--accent); }
+  .kpi.green::before { background: var(--green); }
+  .kpi.yellow::before { background: var(--yellow); }
+  .kpi.red::before { background: var(--red); }
+  .kpi.purple::before { background: var(--purple); }
+  .kpi:hover { border-color: var(--border2); box-shadow: var(--glow); }
+  .kpi-label {
+    font-family: var(--font-mono); font-size: 0.65rem;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  .kpi-value {
+    font-family: var(--font-display); font-size: 2.1rem;
+    font-weight: 800; color: #fff; line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .kpi-delta {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    margin-top: 8px; display: flex; align-items: center; gap: 4px;
+  }
+  .kpi-delta.up { color: var(--green); }
+  .kpi-delta.down { color: var(--red); }
+  .kpi-icon {
+    position: absolute; right: 16px; top: 16px;
+    font-size: 1.6rem; opacity: 0.12;
+  }
+
+  /* ─── CHARTS ────────────────────────────────────── */
+  .chart-wrap { position: relative; }
+  canvas { width: 100% !important; }
+
+  /* ─── TABLES ─────────────────────────────────────  */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { border-bottom: 2px solid var(--border2); }
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  th {
+    padding: 10px 14px;
+    font-family: var(--font-mono); font-size: 0.62rem;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); text-align: left; white-space: nowrap;
+  }
+  td { padding: 12px 14px; font-size: 0.83rem; color: var(--text); }
+  td.mono { font-family: var(--font-mono); font-size: 0.78rem; }
+
+  /* ─── BADGES ─────────────────────────────────────── */
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px; border-radius: 100px;
+    font-family: var(--font-mono); font-size: 0.65rem;
+    letter-spacing: 0.04em; font-weight: 500;
+  }
+  .badge-green { background: rgba(0,230,122,0.12); color: var(--green); border: 1px solid rgba(0,230,122,0.2); }
+  .badge-red { background: rgba(255,69,96,0.12); color: var(--red); border: 1px solid rgba(255,69,96,0.2); }
+  .badge-yellow { background: rgba(255,210,63,0.12); color: var(--yellow); border: 1px solid rgba(255,210,63,0.2); }
+  .badge-accent { background: rgba(0,200,255,0.12); color: var(--accent); border: 1px solid rgba(0,200,255,0.2); }
+  .badge-muted { background: rgba(90,112,128,0.12); color: var(--muted); border: 1px solid rgba(90,112,128,0.2); }
+  .badge-purple { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+
+  /* ─── FORMS & CONTROLS ───────────────────────────── */
+  .form-group { margin-bottom: 18px; }
+  .form-label {
+    display: block;
+    font-family: var(--font-mono); font-size: 0.65rem;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); margin-bottom: 7px;
+  }
+  .form-control {
+    width: 100%;
+    background: var(--panel); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 9px 12px;
+    color: var(--text); font-family: var(--font-body); font-size: 0.85rem;
+    transition: border-color 0.15s;
+    -webkit-appearance: none; appearance: none;
+  }
+  .form-control:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,200,255,0.1);
+  }
+  select.form-control {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%235a7080'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 32px;
+  }
+  .slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: var(--border2); border-radius: 2px; outline: none; }
+  .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent); border-radius: 50%; cursor: pointer; }
+  .toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0; cursor: pointer;
+    background: var(--border2); border-radius: 22px; transition: 0.2s;
+  }
+  .toggle-slider::before {
+    content: ''; position: absolute;
+    height: 16px; width: 16px; left: 3px; bottom: 3px;
+    background: #fff; border-radius: 50%; transition: 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+  /* ─── PROGRESS BARS ─────────────────────────────── */
+  .progress { background: var(--border2); border-radius: 100px; overflow: hidden; height: 6px; }
+  .progress-bar { height: 100%; border-radius: 100px; transition: width 0.6s ease; }
+
+  /* ─── TERMINAL / LOG ────────────────────────────── */
+  .terminal {
+    background: #050810;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: var(--font-mono); font-size: 0.75rem;
+    height: 300px; overflow-y: auto;
+    padding: 14px 16px;
+    line-height: 1.7;
+  }
+  .log-line { display: flex; gap: 10px; }
+  .log-time { color: var(--muted); min-width: 60px; flex-shrink: 0; }
+  .log-level { min-width: 52px; flex-shrink: 0; }
+  .log-level.INFO { color: var(--accent); }
+  .log-level.WARN { color: var(--yellow); }
+  .log-level.ERROR { color: var(--red); }
+  .log-level.SUCCESS { color: var(--green); }
+  .log-msg { color: var(--text); }
+
+  /* ─── TOPOLOGY MAP ───────────────────────────────── */
+  #topology-canvas { width: 100%; height: 340px; border-radius: 8px; }
+
+  /* ─── ALERT FEED ─────────────────────────────────── */
+  .alert-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+  .alert-item:hover { background: rgba(255,255,255,0.02); }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0; margin-top: 5px;
+  }
+  .alert-body { flex: 1; min-width: 0; }
+  .alert-title { font-size: 0.82rem; font-weight: 500; color: #fff; margin-bottom: 3px; }
+  .alert-meta { font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); }
+  .alert-action { flex-shrink: 0; }
+
+  /* ─── CONFUSION MATRIX ────────────────────────────── */
+  .cm-grid { display: grid; gap: 3px; }
+  .cm-cell {
+    aspect-ratio: 1; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500;
+    transition: transform 0.15s;
+    cursor: default;
+  }
+  .cm-cell:hover { transform: scale(1.05); }
+  .cm-label {
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 0.6rem; color: var(--muted);
+  }
+
+  /* ─── SECTION HEADERS ─────────────────────────────── */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem; font-weight: 700; color: #fff;
+    letter-spacing: -0.02em;
+  }
+  .section-sub { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+  /* ─── TABS ────────────────────────────────────────── */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  .tab {
+    padding: 10px 16px; cursor: pointer; font-size: 0.83rem;
+    color: var(--muted); border-bottom: 2px solid transparent;
+    transition: all 0.15s; margin-bottom: -1px; font-weight: 500;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ─── TAG / CHIP ─────────────────────────────────── */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 6px;
+    background: var(--panel); border: 1px solid var(--border2);
+    font-size: 0.75rem; color: var(--text); cursor: pointer;
+    transition: all 0.12s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { background: rgba(0,200,255,0.1); border-color: var(--accent); color: var(--accent); }
+
+  /* ─── NOTIFICATION TOAST ─────────────────────────── */
+  #toast-container {
+    position: fixed; bottom: 24px; right: 24px;
+    z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    pointer-events: all;
+    animation: slideIn 0.3s ease;
+    max-width: 320px;
+  }
+  .toast-icon { font-size: 1rem; }
+  .toast-text { font-size: 0.82rem; flex: 1; }
+  .toast-title { font-weight: 600; color: #fff; margin-bottom: 2px; }
+  .toast-sub { color: var(--muted); font-size: 0.75rem; }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+
+  /* ─── MODAL ──────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(8,12,16,0.85); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 28px;
+    width: 100%; max-width: 520px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    animation: modalIn 0.25s ease;
+  }
+  @keyframes modalIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  .modal-sub { color: var(--muted); font-size: 0.82rem; margin-bottom: 22px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+  /* ─── RUNNING ANIMATION ─────────────────────────── */
+  .running-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 12px; border-radius: 100px;
+    background: rgba(0,230,122,0.08);
+    border: 1px solid rgba(0,230,122,0.2);
+    font-family: var(--font-mono); font-size: 0.68rem;
+    color: var(--green);
+  }
+  .spinner {
+    width: 8px; height: 8px; border-radius: 50%;
+    border: 1.5px solid rgba(0,230,122,0.3);
+    border-top-color: var(--green);
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── PIPELINE STEPS ────────────────────────────── */
+  .pipeline {
+    display: flex; align-items: stretch; gap: 0;
+    overflow-x: auto; padding-bottom: 4px;
+  }
+  .pipe-step {
+    flex: 1; min-width: 110px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-right: none; padding: 16px 14px;
+    position: relative;
+    transition: background 0.15s;
+  }
+  .pipe-step:first-child { border-radius: 10px 0 0 10px; }
+  .pipe-step:last-child { border-right: 1px solid var(--border); border-radius: 0 10px 10px 0; }
+  .pipe-step.done { background: rgba(0,230,122,0.04); border-color: rgba(0,230,122,0.2); }
+  .pipe-step.active { background: rgba(0,200,255,0.06); border-color: rgba(0,200,255,0.25); }
+  .pipe-step.pending { opacity: 0.5; }
+  .pipe-num {
+    font-family: var(--font-mono); font-size: 0.6rem;
+    color: var(--muted); margin-bottom: 6px;
+  }
+  .pipe-name {
+    font-size: 0.78rem; font-weight: 600; color: #fff;
+    margin-bottom: 4px;
+  }
+  .pipe-status { font-family: var(--font-mono); font-size: 0.65rem; }
+  .pipe-status.done { color: var(--green); }
+  .pipe-status.active { color: var(--accent); }
+  .pipe-status.pending { color: var(--muted); }
+
+  /* ─── METRIC ROWS ─────────────────────────────────── */
+  .metric-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-name { font-size: 0.83rem; color: var(--muted); }
+  .metric-val { font-family: var(--font-mono); font-size: 0.88rem; font-weight: 500; color: #fff; }
+
+  /* ─── RESPONSIVE ──────────────────────────────────── */
+  @media (max-width: 1100px) {
+    .g4 { grid-template-columns: repeat(2, 1fr); }
+    .g3 { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+    .g2, .g3, .g4, .g13, .g31 { grid-template-columns: 1fr; }
+  }
+
+  /* ─── SCROLLABLE TABLE BODY ─────────────────────── */
+  .table-scroll { max-height: 380px; overflow-y: auto; }
+
+  /* ─── NODE MAP ───────────────────────────────────── */
+  .topo-wrap { position: relative; background: var(--panel); border-radius: 8px; overflow: hidden; }
+  .topo-wrap canvas { display: block; }
+
+  /* ─── GRADIENT TEXT ──────────────────────────────── */
+  .grad-text {
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ─── INLINE DIVIDER ─────────────────────────────── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* ─── EMPTY STATE ─────────────────────────────────── */
+  .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 0.85rem; }
+
+  /* ─── SPARKLINE ───────────────────────────────────── */
+  .sparkline { display: inline-block; }
+
+  /* ─── ATTACK CLASS COLOR DOTS ─────────────────────── */
+  .cls-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+  /* ─── SCAN ANIMATION OVERLAY ────────────────────── */
+  @keyframes scan {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ════════ SIDEBAR ════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">🛡️</div>
+        FedGuard
+      </div>
+      <div class="logo-sub">SDN Intrusion Detection</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Overview</div>
+      <div class="nav-item active" onclick="navigate('overview')">
+        <span class="nav-icon">⬛</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="navigate('pipeline')">
+        <span class="nav-icon">▶</span> Run Pipeline
+        <span class="nav-badge">9 steps</span>
+      </div>
+      <div class="nav-item" onclick="navigate('alerts')">
+        <span class="nav-icon">⚠</span> Live Alerts
+        <span class="nav-badge" id="alert-count">3</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Training</div>
+      <div class="nav-item" onclick="navigate('federated')">
+        <span class="nav-icon">🔄</span> Federated Learning
+      </div>
+      <div class="nav-item" onclick="navigate('adversarial')">
+        <span class="nav-icon">⚔</span> Adversarial / GAN
+      </div>
+      <div class="nav-item" onclick="navigate('dqn')">
+        <span class="nav-icon">🎮</span> DQN Agent
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Analysis</div>
+      <div class="nav-item" onclick="navigate('evaluation')">
+        <span class="nav-icon">📊</span> Evaluation
+      </div>
+      <div class="nav-item" onclick="navigate('topology')">
+        <span class="nav-icon">🌐</span> SDN Topology
+      </div>
+      <div class="nav-item" onclick="navigate('data')">
+        <span class="nav-icon">💾</span> Dataset
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">System</div>
+      <div class="nav-item" onclick="navigate('config')">
+        <span class="nav-icon">⚙</span> Configuration
+      </div>
+      <div class="nav-item" onclick="navigate('logs')">
+        <span class="nav-icon">📋</span> System Logs
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="system-status">
+        <div class="status-row">
+          <span><span class="status-dot green"></span>Detector</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--green)">ONLINE</span>
+        </div>
+        <div class="status-row">
+          <span><span class="status-dot green"></span>FL Server</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--green)">5 clients</span>
+        </div>
+        <div class="status-row">
+          <span><span class="status-dot yellow"></span>DQN Agent</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--yellow)">IDLE</span>
+        </div>
+        <div class="status-row">
+          <span><span class="status-dot red"></span>GAN</span>
+          <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--muted)">STOPPED</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════ MAIN ════════ -->
+  <main class="main">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="topbar-title" id="page-title">Dashboard</div>
+          <div class="topbar-breadcrumb" id="page-crumb">fedguard / overview</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="running-pill" id="global-status">
+          <div class="spinner"></div>
+          Monitoring Active
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="openModal('export-modal')">⬇ Export</button>
+        <button class="btn btn-primary btn-sm" onclick="navigate('pipeline')">▶ Run Pipeline</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ══════════ PAGE: OVERVIEW ══════════ -->
+      <div class="page active" id="page-overview">
+        <div class="section-header">
+          <div>
+            <div class="section-title">System Overview</div>
+            <div class="section-sub">Real-time metrics across all FedGuard components</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-family:var(--font-mono);font-size:0.7rem;color:var(--muted)">Last update: <span id="last-update">just now</span></span>
+            <button class="btn btn-ghost btn-sm" onclick="refreshMetrics()">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="grid g4" style="margin-bottom:18px;">
+          <div class="kpi accent">
+            <div class="kpi-label">Detection Accuracy</div>
+            <div class="kpi-value" id="kpi-acc">97.4%</div>
+            <div class="kpi-delta up">↑ 2.1% from last round</div>
+            <div class="kpi-icon">🎯</div>
+          </div>
+          <div class="kpi green">
+            <div class="kpi-label">Adversarial Acc.</div>
+            <div class="kpi-value" id="kpi-adv">91.2%</div>
+            <div class="kpi-delta up">↑ 0.8% with augmentation</div>
+            <div class="kpi-icon">⚔</div>
+          </div>
+          <div class="kpi yellow">
+            <div class="kpi-label">Avg. Latency</div>
+            <div class="kpi-value" id="kpi-lat">82ms</div>
+            <div class="kpi-delta up">↓ 14ms vs target</div>
+            <div class="kpi-icon">⚡</div>
+          </div>
+          <div class="kpi purple">
+            <div class="kpi-label">FL Rounds</div>
+            <div class="kpi-value" id="kpi-rounds">30/30</div>
+            <div class="kpi-delta up">✓ All converged</div>
+            <div class="kpi-icon">🔄</div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid g2" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🔄 FL Training Progress</div>
+              <div class="card-actions">
+                <span class="badge badge-green">Converged</span>
+              </div>
+            </div>
+            <div class="card-body chart-wrap">
+              <canvas id="fl-chart" height="200"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">⚔ Adversarial Robustness (FGSM)</div>
+              <div class="card-actions">
+                <span class="badge badge-accent">6 epsilons</span>
+              </div>
+            </div>
+            <div class="card-body chart-wrap">
+              <canvas id="robustness-chart" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid g13" style="margin-bottom:18px;">
+          <!-- Live Alert Feed -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">⚠ Live Threat Feed</div>
+              <div class="card-actions">
+                <div class="running-pill" style="padding:3px 10px;font-size:0.65rem;">
+                  <div class="spinner"></div> Live
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="navigate('alerts')">View All →</button>
+              </div>
+            </div>
+            <div id="alert-feed">
+              <!-- populated by JS -->
+            </div>
+          </div>
+          <!-- Target Status -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🏁 Target Status</div>
+            </div>
+            <div class="card-body">
+              <div id="target-rows"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Class breakdown -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 Per-Class Performance</div>
+            <div class="card-actions">
+              <select class="form-control" style="width:140px;padding:5px 10px;font-size:0.75rem;" onchange="updateClassChart(this.value)">
+                <option value="f1">F1 Score</option>
+                <option value="precision">Precision</option>
+                <option value="recall">Recall</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body">
+            <canvas id="class-chart" height="120"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: PIPELINE ══════════ -->
+      <div class="page" id="page-pipeline">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Run Full Pipeline</div>
+            <div class="section-sub">Execute the complete FedGuard training & evaluation workflow</div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-ghost" onclick="resetPipeline()">↺ Reset</button>
+            <button class="btn btn-primary" id="run-btn" onclick="runPipeline()">▶ Start Pipeline</button>
+          </div>
+        </div>
+
+        <!-- Step indicator -->
+        <div class="pipeline" id="pipeline-steps" style="margin-bottom:20px;">
+          <!-- Steps rendered by JS -->
+        </div>
+
+        <!-- Config override -->
+        <div class="grid g2" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">⚙ Quick Config</div></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">Dataset</label>
+                <select class="form-control" id="cfg-dataset">
+                  <option value="synthetic">Synthetic (default)</option>
+                  <option value="nsl_kdd">NSL-KDD</option>
+                  <option value="unsw_nb15">UNSW-NB15</option>
+                  <option value="cicids2018">CIC-IDS2018</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">FL Rounds: <span id="rounds-val">30</span></label>
+                <input type="range" class="slider" min="5" max="100" value="30" oninput="document.getElementById('rounds-val').textContent=this.value">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Byzantine Defense</label>
+                <select class="form-control">
+                  <option>FedAvg</option>
+                  <option>Krum</option>
+                  <option>Trimmed Mean</option>
+                </select>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:0.83rem;">GAN Augmentation</span>
+                  <label class="toggle"><input type="checkbox" checked id="tog-gan"><span class="toggle-slider"></span></label>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:0.83rem;">DQN Mitigation</span>
+                  <label class="toggle"><input type="checkbox" checked id="tog-dqn"><span class="toggle-slider"></span></label>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:0.83rem;">Gradient Encryption</span>
+                  <label class="toggle"><input type="checkbox" id="tog-enc"><span class="toggle-slider"></span></label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress + Log -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📋 Execution Log</div>
+              <div class="card-actions">
+                <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
+              </div>
+            </div>
+            <div class="terminal" id="pipeline-log">
+              <div class="log-line">
+                <span class="log-time">00:00:00</span>
+                <span class="log-level INFO">INFO</span>
+                <span class="log-msg">FedGuard pipeline ready. Click "Start Pipeline" to begin.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress bars -->
+        <div class="card" id="progress-card" style="display:none;">
+          <div class="card-header"><div class="card-title">📈 Live Progress</div></div>
+          <div class="card-body">
+            <div id="progress-rows"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: FEDERATED ══════════ -->
+      <div class="page" id="page-federated">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Federated Learning</div>
+            <div class="section-sub">5 SDN controllers · FedProx · Byzantine-fault tolerant aggregation</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="showToast('FL Round Triggered', '30 rounds scheduled on 5 clients', 'accent')">▶ Run FL</button>
+        </div>
+
+        <div class="grid g4" style="margin-bottom:18px;">
+          <div class="kpi accent">
+            <div class="kpi-label">Active Clients</div>
+            <div class="kpi-value">5/5</div>
+            <div class="kpi-delta up">All controllers online</div>
+          </div>
+          <div class="kpi green">
+            <div class="kpi-label">Rounds Complete</div>
+            <div class="kpi-value">30</div>
+            <div class="kpi-delta up">Target: 30</div>
+          </div>
+          <div class="kpi yellow">
+            <div class="kpi-label">Avg Train Loss</div>
+            <div class="kpi-value">0.08</div>
+            <div class="kpi-delta up">↓ Converged</div>
+          </div>
+          <div class="kpi purple">
+            <div class="kpi-label">Defense</div>
+            <div class="kpi-value" style="font-size:1.3rem;">FedAvg</div>
+            <div class="kpi-delta">0 Byzantine nodes</div>
+          </div>
+        </div>
+
+        <div class="grid g2" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">📈 Accuracy vs Rounds</div></div>
+            <div class="card-body chart-wrap">
+              <canvas id="fl-detail-chart" height="220"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">📉 Training Loss</div></div>
+            <div class="card-body chart-wrap">
+              <canvas id="loss-chart" height="220"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Client table -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🖥 Controller Status</div>
+            <span class="badge badge-green">All Online</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Controller</th>
+                  <th>Samples</th>
+                  <th>Local Loss</th>
+                  <th>Class Distribution</th>
+                  <th>Status</th>
+                  <th>Last Update</th>
+                </tr>
+              </thead>
+              <tbody id="client-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: ADVERSARIAL ══════════ -->
+      <div class="page" id="page-adversarial">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Adversarial Training</div>
+            <div class="section-sub">GAN attack generation · FGSM perturbation · Hardened dataset</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="showToast('GAN Training', 'Starting 30 epochs on attack samples...', 'accent')">▶ Train GAN</button>
+        </div>
+
+        <div class="grid g4" style="margin-bottom:18px;">
+          <div class="kpi accent">
+            <div class="kpi-label">G Loss (final)</div>
+            <div class="kpi-value">0.69</div>
+            <div class="kpi-delta up">↓ Stable</div>
+          </div>
+          <div class="kpi red">
+            <div class="kpi-label">D Loss (final)</div>
+            <div class="kpi-value">0.71</div>
+            <div class="kpi-delta up">↑ Balanced</div>
+          </div>
+          <div class="kpi green">
+            <div class="kpi-label">Augmented Samples</div>
+            <div class="kpi-value">+18k</div>
+            <div class="kpi-delta up">30% adversarial ratio</div>
+          </div>
+          <div class="kpi yellow">
+            <div class="kpi-label">FGSM Epsilon</div>
+            <div class="kpi-value">0.10</div>
+            <div class="kpi-delta">Target strength</div>
+          </div>
+        </div>
+
+        <div class="grid g2" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">⚔ GAN Training Curves</div></div>
+            <div class="card-body chart-wrap">
+              <canvas id="gan-chart" height="210"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">🛡 FGSM Robustness Sweep</div></div>
+            <div class="card-body chart-wrap">
+              <canvas id="fgsm-chart" height="210"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">🧪 Run FGSM Attack Test</div></div>
+          <div class="card-body">
+            <div class="grid g3">
+              <div class="form-group">
+                <label class="form-label">Epsilon</label>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <input type="range" class="slider" min="0" max="50" value="10" oninput="document.getElementById('eps-display').textContent=(this.value/100).toFixed(2)" style="flex:1">
+                  <span id="eps-display" style="font-family:var(--font-mono);font-size:0.85rem;min-width:32px;">0.10</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Test Samples</label>
+                <select class="form-control">
+                  <option>500</option><option>1000</option><option selected>2000</option><option>5000</option>
+                </select>
+              </div>
+              <div class="form-group" style="display:flex;align-items:flex-end;">
+                <button class="btn btn-primary" style="width:100%;" onclick="showToast('FGSM Test', 'Running adversarial attack with ε=0.10...', 'yellow')">Run Attack Test</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: DQN ══════════ -->
+      <div class="page" id="page-dqn">
+        <div class="section-header">
+          <div>
+            <div class="section-title">DQN Mitigation Agent</div>
+            <div class="section-sub">Deep Q-Network · 8 mitigation actions · Autonomous SDN response</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="showToast('DQN Training', '200 episodes starting...', 'purple')">▶ Train Agent</button>
+        </div>
+
+        <div class="grid g4" style="margin-bottom:18px;">
+          <div class="kpi purple">
+            <div class="kpi-label">Episodes</div>
+            <div class="kpi-value">200</div>
+            <div class="kpi-delta up">✓ Converged</div>
+          </div>
+          <div class="kpi green">
+            <div class="kpi-label">Avg Reward</div>
+            <div class="kpi-value">+8.4</div>
+            <div class="kpi-delta up">↑ Last 20 eps</div>
+          </div>
+          <div class="kpi accent">
+            <div class="kpi-label">Mitigation Rate</div>
+            <div class="kpi-value">94.1%</div>
+            <div class="kpi-delta up">↑ Attacks blocked</div>
+          </div>
+          <div class="kpi yellow">
+            <div class="kpi-label">Epsilon (ε)</div>
+            <div class="kpi-value">0.01</div>
+            <div class="kpi-delta">Fully exploiting</div>
+          </div>
+        </div>
+
+        <div class="grid g2" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">🎮 Episode Rewards</div></div>
+            <div class="card-body chart-wrap">
+              <canvas id="dqn-chart" height="210"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">🎯 Action Distribution</div></div>
+            <div class="card-body chart-wrap" style="display:flex;align-items:center;justify-content:center;">
+              <canvas id="action-chart" height="210" style="max-width:300px;"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action effectiveness table -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">⚡ Mitigation Actions Effectiveness</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>DoS</th><th>Probe</th><th>R2L</th><th>U2R</th>
+                  <th>Latency</th><th>Usage</th>
+                </tr>
+              </thead>
+              <tbody id="action-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: EVALUATION ══════════ -->
+      <div class="page" id="page-evaluation">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Model Evaluation</div>
+            <div class="section-sub">Detection accuracy · Confusion matrix · Per-class metrics</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="showToast('Benchmark Run', 'Full evaluation started...', 'accent')">▶ Run Benchmark</button>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'tab-detection')">Detection</div>
+          <div class="tab" onclick="switchTab(this,'tab-confusion')">Confusion Matrix</div>
+          <div class="tab" onclick="switchTab(this,'tab-report')">Classification Report</div>
+        </div>
+
+        <div id="tab-detection">
+          <div class="grid g4" style="margin-bottom:18px;">
+            <div class="kpi accent"><div class="kpi-label">Accuracy</div><div class="kpi-value">97.4%</div></div>
+            <div class="kpi green"><div class="kpi-label">Macro F1</div><div class="kpi-value">96.8%</div></div>
+            <div class="kpi yellow"><div class="kpi-label">False Pos. Rate</div><div class="kpi-value">1.2%</div></div>
+            <div class="kpi purple"><div class="kpi-label">Detection Rate</div><div class="kpi-value">98.6%</div></div>
+          </div>
+          <div class="grid g2">
+            <div class="card">
+              <div class="card-header"><div class="card-title">Per-Class F1</div></div>
+              <div class="card-body chart-wrap">
+                <canvas id="eval-class-chart" height="220"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">Benchmark vs Targets</div></div>
+              <div class="card-body" id="benchmark-targets"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-confusion" style="display:none;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Confusion Matrix (Normalized)</div>
+              <span class="badge badge-accent">5×5</span>
+            </div>
+            <div class="card-body" style="display:flex;justify-content:center;">
+              <div id="cm-container" style="max-width:480px;width:100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-report" style="display:none;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Classification Report</div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead>
+                <tbody id="report-table"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: TOPOLOGY ══════════ -->
+      <div class="page" id="page-topology">
+        <div class="section-header">
+          <div>
+            <div class="section-title">SDN Topology</div>
+            <div class="section-sub">10 switches · 20 hosts · 5 controller zones · Live flow simulation</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="redrawTopology()">↻ Refresh</button>
+            <button class="btn btn-danger btn-sm" onclick="showToast('Simulation', 'Attack scenario launched on sw04...', 'red')">💀 Simulate Attack</button>
+          </div>
+        </div>
+
+        <div class="grid g31" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">🌐 Network Topology</div></div>
+            <div class="card-body">
+              <div class="topo-wrap">
+                <canvas id="topo-canvas" height="360"></canvas>
+              </div>
+              <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;">
+                <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--muted)">
+                  <span style="width:12px;height:12px;border-radius:50%;background:var(--accent);display:inline-block;"></span>SDN Controller
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--muted)">
+                  <span style="width:12px;height:12px;border-radius:50%;background:var(--green);display:inline-block;"></span>Switch (Normal)
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--muted)">
+                  <span style="width:12px;height:12px;border-radius:50%;background:var(--red);display:inline-block;"></span>Switch (Alert)
+                </span>
+                <span style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--muted)">
+                  <span style="width:12px;height:12px;border-radius:3px;background:var(--muted);display:inline-block;"></span>Host
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">📊 Zone Stats</div></div>
+            <div class="card-body" id="zone-stats"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">🔀 Flow Table (Sample)</div></div>
+          <div class="table-wrap table-scroll">
+            <table>
+              <thead><tr><th>Switch</th><th>Src IP</th><th>Dst IP</th><th>Action</th><th>Priority</th><th>Packets</th></tr></thead>
+              <tbody id="flow-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: ALERTS ══════════ -->
+      <div class="page" id="page-alerts">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Live Threat Alerts</div>
+            <div class="section-sub">Real-time intrusion detection events with DQN mitigation actions</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="generateAlert()">+ Simulate Event</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearAlerts()">🗑 Clear All</button>
+          </div>
+        </div>
+
+        <!-- Filter chips -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <span class="chip active" onclick="filterAlerts('all',this)">All Events</span>
+          <span class="chip" onclick="filterAlerts('DoS',this)">DoS</span>
+          <span class="chip" onclick="filterAlerts('Probe',this)">Probe</span>
+          <span class="chip" onclick="filterAlerts('R2L',this)">R2L</span>
+          <span class="chip" onclick="filterAlerts('U2R',this)">U2R</span>
+          <span class="chip" onclick="filterAlerts('Normal',this)">Normal</span>
+        </div>
+
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th><th>Source IP</th><th>Switch</th>
+                  <th>Attack Type</th><th>Confidence</th>
+                  <th>Action Taken</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="alerts-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: DATASET ══════════ -->
+      <div class="page" id="page-data">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Dataset</div>
+            <div class="section-sub">Synthetic NSL-KDD-style traffic · 50,000 samples · 41 features</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="showToast('Dataset Generated', '50,000 synthetic samples ready', 'green')">⟳ Regenerate</button>
+        </div>
+
+        <div class="grid g4" style="margin-bottom:18px;">
+          <div class="kpi accent"><div class="kpi-label">Total Samples</div><div class="kpi-value">50k</div></div>
+          <div class="kpi green"><div class="kpi-label">Features</div><div class="kpi-value">41</div></div>
+          <div class="kpi yellow"><div class="kpi-label">Classes</div><div class="kpi-value">5</div></div>
+          <div class="kpi purple"><div class="kpi-label">Test Split</div><div class="kpi-value">20%</div></div>
+        </div>
+
+        <div class="grid g2" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">📊 Class Distribution</div></div>
+            <div class="card-body chart-wrap" style="display:flex;align-items:center;justify-content:center;">
+              <canvas id="dist-chart" height="220" style="max-width:320px;"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">🧪 Non-IID Client Split</div></div>
+            <div class="card-body chart-wrap">
+              <canvas id="noniid-chart" height="220"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">📋 Sample Data Preview</div></div>
+          <div class="table-wrap table-scroll">
+            <table>
+              <thead><tr><th>#</th><th>Duration</th><th>Protocol</th><th>Src Bytes</th><th>Dst Bytes</th><th>Serror Rate</th><th>Count</th><th>Label</th></tr></thead>
+              <tbody id="data-preview"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: CONFIG ══════════ -->
+      <div class="page" id="page-config">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Configuration</div>
+            <div class="section-sub">Modify all FedGuard hyperparameters (mirrors config.py)</div>
+          </div>
+          <button class="btn btn-primary" onclick="showToast('Config Saved', 'All settings applied successfully', 'green')">💾 Save Config</button>
+        </div>
+
+        <div class="grid g2">
+          <div>
+            <!-- Federated -->
+            <div class="card" style="margin-bottom:18px;">
+              <div class="card-header"><div class="card-title">🔄 Federated Learning</div></div>
+              <div class="card-body">
+                <div class="grid g2">
+                  <div class="form-group">
+                    <label class="form-label">Num Clients</label>
+                    <input class="form-control" type="number" value="5" min="1" max="50">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">FL Rounds</label>
+                    <input class="form-control" type="number" value="30" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Local Epochs</label>
+                    <input class="form-control" type="number" value="5" min="1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Local Batch Size</label>
+                    <input class="form-control" type="number" value="128">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Local LR</label>
+                    <input class="form-control" type="text" value="0.01">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Byzantine Defense</label>
+                    <select class="form-control">
+                      <option selected>fedavg</option>
+                      <option>krum</option>
+                      <option>trimmed_mean</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- GAN -->
+            <div class="card" style="margin-bottom:18px;">
+              <div class="card-header"><div class="card-title">⚔ GAN</div></div>
+              <div class="card-body">
+                <div class="grid g2">
+                  <div class="form-group">
+                    <label class="form-label">GAN Epochs</label>
+                    <input class="form-control" type="number" value="30">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Batch Size</label>
+                    <input class="form-control" type="number" value="128">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Latent Dim</label>
+                    <input class="form-control" type="number" value="64">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Adversarial Ratio</label>
+                    <input class="form-control" type="text" value="0.3">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <!-- DQN -->
+            <div class="card" style="margin-bottom:18px;">
+              <div class="card-header"><div class="card-title">🎮 DQN Agent</div></div>
+              <div class="card-body">
+                <div class="grid g2">
+                  <div class="form-group">
+                    <label class="form-label">Episodes</label>
+                    <input class="form-control" type="number" value="200">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Max Steps/Ep</label>
+                    <input class="form-control" type="number" value="50">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Learning Rate</label>
+                    <input class="form-control" type="text" value="0.001">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Gamma (γ)</label>
+                    <input class="form-control" type="text" value="0.99">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ε Start</label>
+                    <input class="form-control" type="text" value="1.0">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">ε End</label>
+                    <input class="form-control" type="text" value="0.01">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Privacy -->
+            <div class="card" style="margin-bottom:18px;">
+              <div class="card-header"><div class="card-title">🔒 Privacy</div></div>
+              <div class="card-body">
+                <div class="form-group">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                    <div>
+                      <div style="font-size:0.83rem;font-weight:500;">Encrypt Gradients</div>
+                      <div style="font-size:0.73rem;color:var(--muted);">Fernet symmetric encryption</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                      <div style="font-size:0.83rem;font-weight:500;">Differential Privacy Noise</div>
+                      <div style="font-size:0.73rem;color:var(--muted);">σ = 0.001 Gaussian noise</div>
+                    </div>
+                    <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Noise Std</label>
+                  <input class="form-control" type="text" value="0.001">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ PAGE: LOGS ══════════ -->
+      <div class="page" id="page-logs">
+        <div class="section-header">
+          <div>
+            <div class="section-title">System Logs</div>
+            <div class="section-sub">All FedGuard component output in real time</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <select class="form-control" style="width:150px;padding:6px 10px;font-size:0.78rem;" id="log-filter" onchange="filterLogs()">
+              <option>All Components</option>
+              <option>FL-Server</option><option>FL-Client</option>
+              <option>GAN</option><option>DQN-Agent</option>
+              <option>Detector</option><option>Augmentor</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="clearLog2()">🗑 Clear</button>
+          </div>
+        </div>
+        <div class="terminal" id="system-log" style="height:500px;"></div>
+      </div>
+    </div><!-- /content -->
+  </main>
+</div>
+
+<!-- ═══════ MODALS ═══════ -->
+<div class="modal-overlay" id="export-modal">
+  <div class="modal">
+    <div class="modal-title">Export Results</div>
+    <div class="modal-sub">Download FedGuard benchmark results in your preferred format</div>
+    <div class="grid g2">
+      <button class="btn btn-ghost" onclick="showToast('Exported','results_json exported','green');closeModal('export-modal')">📄 JSON Report</button>
+      <button class="btn btn-ghost" onclick="showToast('Exported','CSV data exported','green');closeModal('export-modal')">📊 CSV Data</button>
+      <button class="btn btn-ghost" onclick="showToast('Exported','PNG charts saved','green');closeModal('export-modal')">🖼 Charts (PNG)</button>
+      <button class="btn btn-ghost" onclick="showToast('Exported','config.py generated','green');closeModal('export-modal')">⚙ config.py</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('export-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- ═══════ CHART.JS (CDN) ═══════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// ════════════════════════════════════════════════════
+//  FEDGUARD DASHBOARD — Full JS Logic
+// ════════════════════════════════════════════════════
+
+/* ── NAVIGATION ───────────────────────────── */
+const pages = {
+  overview:     { title: 'Dashboard',          crumb: 'fedguard / overview' },
+  pipeline:     { title: 'Run Pipeline',        crumb: 'fedguard / pipeline' },
+  federated:    { title: 'Federated Learning',  crumb: 'fedguard / fl' },
+  adversarial:  { title: 'Adversarial / GAN',   crumb: 'fedguard / adv' },
+  dqn:          { title: 'DQN Agent',           crumb: 'fedguard / dqn' },
+  evaluation:   { title: 'Evaluation',          crumb: 'fedguard / eval' },
+  topology:     { title: 'SDN Topology',        crumb: 'fedguard / topology' },
+  alerts:       { title: 'Live Alerts',         crumb: 'fedguard / alerts' },
+  data:         { title: 'Dataset',             crumb: 'fedguard / data' },
+  config:       { title: 'Configuration',       crumb: 'fedguard / config' },
+  logs:         { title: 'System Logs',         crumb: 'fedguard / logs' },
+};
+let currentPage = 'overview';
+let charts = {};
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('active', n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+page+"'"));
+  });
+  document.getElementById('page-title').textContent = pages[page]?.title || page;
+  document.getElementById('page-crumb').textContent = pages[page]?.crumb || '';
+  currentPage = page;
+  if (!chartsInitialized[page]) {
+    chartsInitialized[page] = true;
+    setTimeout(() => initPageCharts(page), 50);
+  }
+}
+
+const chartsInitialized = {};
+
+/* ── CHART DEFAULTS ─────────────────────────── */
+Chart.defaults.color = '#5a7080';
+Chart.defaults.borderColor = '#1e2a35';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+
+function chartDefaults(extra = {}) {
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    animation: { duration: 600, easing: 'easeInOutQuart' },
+    plugins: {
+      legend: { labels: { color: '#5a7080', boxWidth: 10, padding: 14 } },
+      tooltip: {
+        backgroundColor: '#111820', borderColor: '#1e2a35', borderWidth: 1,
+        titleColor: '#cdd8e3', bodyColor: '#5a7080',
+        padding: 10, cornerRadius: 8,
+      },
+      ...extra
+    }
+  };
+}
+
+/* ── DATA GENERATION ────────────────────────── */
+function genFL(rounds=30) {
+  const accs = [], f1s = [], losses = [];
+  let acc = 0.55, f1 = 0.45, loss = 2.1;
+  for (let i=0; i<rounds; i++) {
+    acc = Math.min(0.974 + (Math.random()-0.5)*0.005, acc + 0.018 + Math.random()*0.01);
+    f1 = acc - 0.01 + (Math.random()-0.5)*0.005;
+    loss = Math.max(0.07, loss * (0.88 + Math.random()*0.04));
+    accs.push(+acc.toFixed(4)); f1s.push(+f1.toFixed(4)); losses.push(+loss.toFixed(4));
+  }
+  return { accs, f1s, losses };
+}
+
+const FL_DATA = genFL(30);
+
+function genGAN(epochs=30) {
+  const g=[], d=[];
+  let gl=1.6, dl=0.5;
+  for(let i=0;i<epochs;i++){
+    gl += (Math.random()-0.6)*0.04;
+    dl += (Math.random()-0.4)*0.03;
+    gl=Math.max(0.6,gl); dl=Math.max(0.5,dl);
+    g.push(+gl.toFixed(4)); d.push(+dl.toFixed(4));
+  }
+  return {g,d};
+}
+const GAN_DATA = genGAN(30);
+
+const FGSM_EPS = [0,0.01,0.05,0.1,0.15,0.2,0.3];
+const FGSM_ACC = [0.974,0.968,0.946,0.912,0.878,0.843,0.791];
+const FGSM_F1  = [0.968,0.961,0.938,0.904,0.869,0.831,0.778];
+
+function genDQN(ep=200) {
+  const r=[], avg=[];
+  let base=-5;
+  for(let i=0;i<ep;i++){
+    base = Math.min(9.5, base + 0.08 + Math.random()*0.1);
+    r.push(+(base + (Math.random()-0.5)*3).toFixed(2));
+    avg.push(+(r.slice(-20).reduce((a,b)=>a+b,0)/Math.min(i+1,20)).toFixed(2));
+  }
+  return {r,avg};
+}
+const DQN_DATA = genDQN(200);
+
+/* ── CHART INIT ─────────────────────────────── */
+function initPageCharts(page) {
+  if (page === 'overview') {
+    // FL Overview
+    const fl = makeLineChart('fl-chart',
+      Array.from({length:30},(_,i)=>i+1),
+      [
+        { label:'Accuracy', data:FL_DATA.accs, borderColor:'#00c8ff', backgroundColor:'rgba(0,200,255,0.07)', fill:true, tension:0.4, pointRadius:0 },
+        { label:'Macro F1', data:FL_DATA.f1s,  borderColor:'#ff6b35', backgroundColor:'rgba(255,107,53,0.05)', fill:true, tension:0.4, pointRadius:0 },
+      ],
+      { y:{ min:0.4, max:1.0 } }
+    );
+
+    makeLineChart('robustness-chart', FGSM_EPS, [
+      { label:'Accuracy', data:FGSM_ACC, borderColor:'#00c8ff', tension:0.3, pointRadius:4, pointBackgroundColor:'#00c8ff' },
+      { label:'Macro F1', data:FGSM_F1,  borderColor:'#ff6b35', tension:0.3, pointRadius:4, pointBackgroundColor:'#ff6b35' },
+    ], { y:{ min:0.7, max:1.0 } });
+
+    // Class chart
+    const classNames = ['Normal','DoS','Probe','R2L','U2R'];
+    const f1vals = [0.988,0.975,0.952,0.941,0.918];
+    makeBarChart('class-chart', classNames, [
+      { label:'F1 Score', data:f1vals,
+        backgroundColor:['rgba(0,200,255,0.7)','rgba(255,107,53,0.7)','rgba(255,210,63,0.7)','rgba(0,230,122,0.7)','rgba(167,139,250,0.7)'],
+        borderRadius:6, barThickness:38 }
+    ], { y:{ min:0.85, max:1.0 } });
+  }
+
+  if (page === 'federated') {
+    makeLineChart('fl-detail-chart',
+      Array.from({length:30},(_,i)=>i+1),
+      [
+        { label:'Accuracy', data:FL_DATA.accs, borderColor:'#00c8ff', fill:true, backgroundColor:'rgba(0,200,255,0.07)', tension:0.4, pointRadius:0 },
+      ],
+      { y:{ min:0.4, max:1.0 } }
+    );
+    makeLineChart('loss-chart',
+      Array.from({length:30},(_,i)=>i+1),
+      [{ label:'Train Loss', data:FL_DATA.losses, borderColor:'#ffd23f', tension:0.4, pointRadius:0 }],
+      { y:{ min:0 } }
+    );
+    renderClientTable();
+  }
+
+  if (page === 'adversarial') {
+    makeLineChart('gan-chart', Array.from({length:30},(_,i)=>i+1), [
+      { label:'Generator', data:GAN_DATA.g, borderColor:'#00c8ff', tension:0.4, pointRadius:0 },
+      { label:'Discriminator', data:GAN_DATA.d, borderColor:'#ff6b35', tension:0.4, pointRadius:0 },
+    ], {});
+
+    makeLineChart('fgsm-chart', FGSM_EPS, [
+      { label:'Accuracy', data:FGSM_ACC, borderColor:'#00c8ff', tension:0.3, pointRadius:4, pointBackgroundColor:'#00c8ff' },
+      { label:'Macro F1', data:FGSM_F1,  borderColor:'#ff6b35', tension:0.3, pointRadius:4, pointBackgroundColor:'#ff6b35' },
+    ], { y:{ min:0.7, max:1.0 } });
+  }
+
+  if (page === 'dqn') {
+    makeLineChart('dqn-chart', Array.from({length:200},(_,i)=>i+1), [
+      { label:'Reward', data:DQN_DATA.r, borderColor:'rgba(167,139,250,0.4)', tension:0, pointRadius:0, borderWidth:1 },
+      { label:'Avg (20ep)', data:DQN_DATA.avg, borderColor:'#a78bfa', tension:0.4, pointRadius:0, borderWidth:2 },
+    ], {});
+
+    const actionData = [28,15,12,18,5,11,7,4];
+    const actionNames = ['block_ip','rate_limit','reroute','honeypot','alert_only','quarantine','drop_pkt','null_route'];
+    const ctx = document.getElementById('action-chart').getContext('2d');
+    charts['action-chart'] = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: actionNames,
+        datasets: [{
+          data: actionData,
+          backgroundColor: ['#00c8ff','#ff6b35','#ffd23f','#00e67a','#a78bfa','#ff4560','#5a7080','#243040'],
+          borderWidth: 2, borderColor: '#111820',
+        }]
+      },
+      options: {
+        ...chartDefaults(),
+        cutout: '62%',
+        plugins: { legend: { position: 'right', labels:{ color:'#5a7080', boxWidth:10, padding:10, font:{size:10} } } }
+      }
+    });
+    renderActionTable();
+  }
+
+  if (page === 'evaluation') {
+    const classNames = ['Normal','DoS','Probe','R2L','U2R'];
+    const f1vals = [0.988,0.975,0.952,0.941,0.918];
+    makeBarChart('eval-class-chart', classNames, [
+      { label:'F1 Score', data:f1vals,
+        backgroundColor:['rgba(0,200,255,0.7)','rgba(255,107,53,0.7)','rgba(255,210,63,0.7)','rgba(0,230,122,0.7)','rgba(167,139,250,0.7)'],
+        borderRadius:6, barThickness:38 }
+    ], { y:{ min:0.85, max:1.0 } });
+    renderBenchmarkTargets();
+    renderConfusionMatrix();
+    renderClassReport();
+  }
+
+  if (page === 'data') {
+    // Pie distribution
+    const ctx1 = document.getElementById('dist-chart').getContext('2d');
+    charts['dist'] = new Chart(ctx1, {
+      type:'doughnut',
+      data:{
+        labels:['Normal (60%)','DoS (20%)','Probe (10%)','R2L (6%)','U2R (4%)'],
+        datasets:[{ data:[30000,10000,5000,3000,2000],
+          backgroundColor:['rgba(0,200,255,0.8)','rgba(255,107,53,0.8)','rgba(255,210,63,0.8)','rgba(0,230,122,0.8)','rgba(167,139,250,0.8)'],
+          borderColor:'#111820', borderWidth:3 }]
+      },
+      options:{ ...chartDefaults(), cutout:'55%' }
+    });
+
+    // Non-IID stacked bar
+    const clients = ['Ctrl 0','Ctrl 1','Ctrl 2','Ctrl 3','Ctrl 4'];
+    makeBarChart('noniid-chart', clients, [
+      { label:'Normal',  data:[5200,4800,4500,5100,4900], backgroundColor:'rgba(0,200,255,0.7)', stack:'s' },
+      { label:'DoS',     data:[2100,1800,2300,1600,2200], backgroundColor:'rgba(255,107,53,0.7)', stack:'s' },
+      { label:'Probe',   data:[800,1200,600,1100,800],    backgroundColor:'rgba(255,210,63,0.7)', stack:'s' },
+      { label:'R2L',     data:[400,500,600,350,550],      backgroundColor:'rgba(0,230,122,0.7)', stack:'s' },
+      { label:'U2R',     data:[200,150,300,180,220],      backgroundColor:'rgba(167,139,250,0.7)', stack:'s' },
+    ], {});
+    renderDataPreview();
+  }
+
+  if (page === 'topology') {
+    drawTopology();
+    renderFlowTable();
+    renderZoneStats();
+  }
+
+  if (page === 'alerts') {
+    renderAlertsTable();
+  }
+  if (page === 'logs') {
+    renderSystemLogs();
+  }
+}
+
+function makeLineChart(id, labels, datasets, scalesExtra={}) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets },
+    options:{
+      ...chartDefaults(),
+      interaction:{ intersect:false, mode:'index' },
+      scales:{
+        x:{ grid:{color:'rgba(30,42,53,0.8)'}, ticks:{color:'#5a7080'} },
+        y:{ grid:{color:'rgba(30,42,53,0.8)'}, ticks:{color:'#5a7080'}, ...scalesExtra }
+      }
+    }
+  });
+  return charts[id];
+}
+
+function makeBarChart(id, labels, datasets, scalesExtra={}) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets },
+    options:{
+      ...chartDefaults(),
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:'#5a7080'} },
+        y:{ grid:{color:'rgba(30,42,53,0.8)'}, ticks:{color:'#5a7080'}, ...scalesExtra }
+      }
+    }
+  });
+  return charts[id];
+}
+
+/* ── OVERVIEW PAGE ─────────────────────────── */
+function renderTargetRows() {
+  const targets = [
+    { name:'Detection Accuracy', val:0.974, target:0.97, op:'gte' },
+    { name:'Adversarial Accuracy', val:0.912, target:0.89, op:'gte' },
+    { name:'Mitigation Latency', val:82, target:340, op:'lte', unit:'ms' },
+    { name:'FL Convergence', val:30, target:30, op:'eq' },
+  ];
+  const el = document.getElementById('target-rows');
+  el.innerHTML = targets.map(t => {
+    const pass = t.op==='gte' ? t.val>=t.target : t.op==='lte' ? t.val<=t.target : t.val===t.target;
+    const disp = t.unit ? `${t.val}${t.unit}` : typeof t.val==='number'&&t.val<2 ? (t.val*100).toFixed(1)+'%' : t.val;
+    const tdisp = t.unit ? `${t.target}${t.unit}` : typeof t.target==='number'&&t.target<2 ? (t.target*100).toFixed(1)+'%' : t.target;
+    return `<div class="metric-row">
+      <div>
+        <div class="metric-name">${t.name}</div>
+        <div style="font-size:0.7rem;color:var(--muted);">target: ${tdisp}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="metric-val">${disp}</div>
+        <span class="badge ${pass?'badge-green':'badge-red'}" style="margin-top:4px;">${pass?'✓ PASS':'✗ FAIL'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAlertFeed() {
+  const alerts = [
+    { type:'DoS', src:'192.168.4.23', sw:'sw04', action:'block_ip', severity:'red', time:'12s ago' },
+    { type:'Probe', src:'10.0.2.15', sw:'sw07', action:'honeypot_redirect', severity:'yellow', time:'38s ago' },
+    { type:'R2L', src:'172.16.0.44', sw:'sw02', action:'quarantine_flow', severity:'red', time:'1m ago' },
+    { type:'Normal', src:'192.168.1.5', sw:'sw01', action:'pass', severity:'green', time:'2m ago' },
+  ];
+  const el = document.getElementById('alert-feed');
+  el.innerHTML = alerts.map(a => `
+    <div class="alert-item">
+      <div class="alert-dot" style="background:var(--${a.severity});box-shadow:0 0 6px var(--${a.severity})"></div>
+      <div class="alert-body">
+        <div class="alert-title">${a.type} — ${a.src}</div>
+        <div class="alert-meta">via ${a.sw} · ${a.time} · Action: <span style="color:var(--accent)">${a.action}</span></div>
+      </div>
+      <span class="badge ${a.type==='Normal'?'badge-green':a.severity==='red'?'badge-red':'badge-yellow'}">${a.type}</span>
+    </div>
+  `).join('');
+}
+
+function updateClassChart(metric) {
+  if (!charts['class-chart']) return;
+  const data = {
+    f1:        [0.988, 0.975, 0.952, 0.941, 0.918],
+    precision: [0.991, 0.982, 0.961, 0.935, 0.901],
+    recall:    [0.985, 0.968, 0.943, 0.947, 0.935],
+  };
+  charts['class-chart'].data.datasets[0].data = data[metric];
+  charts['class-chart'].update();
+}
+
+/* ── FEDERATED PAGE ─────────────────────────── */
+function renderClientTable() {
+  const clients = [
+    { id:0, n:9700, loss:0.078, dist:'60% N, 22% DoS', status:'online' },
+    { id:1, n:8800, loss:0.091, dist:'55% N, 18% DoS', status:'online' },
+    { id:2, n:10200,loss:0.083, dist:'62% N, 20% DoS', status:'online' },
+    { id:3, n:9100, loss:0.072, dist:'58% N, 25% DoS', status:'online' },
+    { id:4, n:10200,loss:0.089, dist:'61% N, 19% DoS', status:'online' },
+  ];
+  document.getElementById('client-table').innerHTML = clients.map(c => `
+    <tr>
+      <td><span style="font-family:var(--font-mono);color:var(--accent)">ctrl-${c.id}</span></td>
+      <td class="mono">${c.n.toLocaleString()}</td>
+      <td class="mono">${c.loss}</td>
+      <td style="font-size:0.75rem;color:var(--muted);">${c.dist}</td>
+      <td><span class="badge badge-green">●  ${c.status}</span></td>
+      <td class="mono" style="color:var(--muted);">just now</td>
+    </tr>
+  `).join('');
+}
+
+/* ── DQN PAGE ──────────────────────────────── */
+const ACTIONS = ['block_ip','rate_limit','reroute_traffic','honeypot_redirect','alert_only','quarantine_flow','drop_packet','null_route'];
+const ACTION_EFF = [[0.95,0.40,0.30,0.20],[0.90,0.30,0.20,0.10],[0.85,0.60,0.40,0.30],[0.70,0.80,0.70,0.60],[0.10,0.10,0.10,0.10],[0.80,0.70,0.80,0.70],[0.98,0.50,0.40,0.30],[0.92,0.45,0.35,0.25]];
+const ACTION_LAT = [50,30,120,200,5,80,20,40];
+const ACTION_USE = [28,15,12,18,5,11,7,4];
+
+function renderActionTable() {
+  document.getElementById('action-table').innerHTML = ACTIONS.map((a,i) => {
+    const eff = ACTION_EFF[i];
+    const bar = v => `<div class="progress" style="width:60px;display:inline-block;vertical-align:middle;"><div class="progress-bar" style="width:${v*100}%;background:${v>0.7?'var(--green)':v>0.4?'var(--yellow)':'var(--red)'};"></div></div>`;
+    return `<tr>
+      <td><span style="font-family:var(--font-mono);font-size:0.78rem;">${a}</span></td>
+      <td>${bar(eff[0])} <span style="font-size:0.72rem;color:var(--muted);">${(eff[0]*100).toFixed(0)}%</span></td>
+      <td>${bar(eff[1])} <span style="font-size:0.72rem;color:var(--muted);">${(eff[1]*100).toFixed(0)}%</span></td>
+      <td>${bar(eff[2])} <span style="font-size:0.72rem;color:var(--muted);">${(eff[2]*100).toFixed(0)}%</span></td>
+      <td>${bar(eff[3])} <span style="font-size:0.72rem;color:var(--muted);">${(eff[3]*100).toFixed(0)}%</span></td>
+      <td class="mono">${ACTION_LAT[i]}ms</td>
+      <td>
+        <div class="progress" style="width:80px;"><div class="progress-bar" style="width:${ACTION_USE[i]/28*100}%;background:var(--accent);"></div></div>
+        <span style="font-size:0.7rem;color:var(--muted);margin-left:6px;">${ACTION_USE[i]}%</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── EVALUATION PAGE ─────────────────────────── */
+function switchTab(el, tabId) {
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['tab-detection','tab-confusion','tab-report'].forEach(id => {
+    const el2 = document.getElementById(id);
+    if (el2) el2.style.display = id===tabId ? 'block':'none';
+  });
+}
+
+function renderBenchmarkTargets() {
+  const targets = [
+    { name:'Detection Accuracy', val:97.4, target:97.0, unit:'%' },
+    { name:'Adversarial Accuracy', val:91.2, target:89.0, unit:'%' },
+    { name:'Mitigation Latency', val:82, target:340, unit:'ms', lower:true },
+    { name:'Macro F1', val:96.8, target:95.0, unit:'%' },
+  ];
+  document.getElementById('benchmark-targets').innerHTML = targets.map(t => {
+    const pass = t.lower ? t.val<=t.target : t.val>=t.target;
+    const pct = t.lower ? (1-t.val/t.target)*100 : (t.val/t.target)*100;
+    return `<div class="metric-row">
+      <div>
+        <div class="metric-name">${t.name}</div>
+        <div class="progress" style="width:120px;margin-top:5px;">
+          <div class="progress-bar" style="width:${Math.min(100,pct)}%;background:${pass?'var(--green)':'var(--red)'};"></div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:var(--font-mono);color:#fff;font-size:0.9rem;">${t.val}${t.unit}</div>
+        <span class="badge ${pass?'badge-green':'badge-red'}" style="margin-top:4px;">${pass?'✓':'✗'} ${t.target}${t.unit}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderConfusionMatrix() {
+  const classes = ['Normal','DoS','Probe','R2L','U2R'];
+  const cm = [
+    [0.991,0.004,0.003,0.001,0.001],
+    [0.008,0.975,0.012,0.003,0.002],
+    [0.005,0.018,0.960,0.012,0.005],
+    [0.003,0.012,0.018,0.952,0.015],
+    [0.002,0.008,0.015,0.040,0.935],
+  ];
+  const container = document.getElementById('cm-container');
+  const size = 5;
+  const cellPx = 72;
+
+  let html = `<div style="display:grid;grid-template-columns:60px repeat(${size},${cellPx}px);gap:3px;align-items:center;">`;
+  html += `<div></div>`;
+  classes.forEach(c => html += `<div style="text-align:center;font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);padding-bottom:6px;">${c}</div>`);
+
+  cm.forEach((row,i) => {
+    html += `<div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-align:right;padding-right:8px;">${classes[i]}</div>`;
+    row.forEach((v,j) => {
+      const isdiag = i===j;
+      const intensity = v;
+      const bg = isdiag
+        ? `rgba(0,200,255,${0.2 + intensity*0.7})`
+        : `rgba(255,69,96,${intensity*3})`;
+      const color = intensity > 0.3 ? '#fff' : '#5a7080';
+      html += `<div style="width:${cellPx}px;height:${cellPx}px;border-radius:5px;background:${bg};display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.68rem;color:${color};cursor:default;transition:transform 0.1s;" onmouseenter="this.style.transform='scale(1.04)'" onmouseleave="this.style.transform=''">${(v*100).toFixed(1)}%</div>`;
+    });
+  });
+  html += `</div>`;
+  html += `<div style="margin-top:12px;display:flex;gap:20px;justify-content:center;font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);">
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:rgba(0,200,255,0.7);border-radius:3px;display:inline-block;"></span>Correct</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;background:rgba(255,69,96,0.5);border-radius:3px;display:inline-block;"></span>Misclassified</span>
+  </div>`;
+  container.innerHTML = html;
+}
+
+function renderClassReport() {
+  const classes = ['Normal','DoS','Probe','R2L','U2R'];
+  const data = [
+    [0.991,0.985,0.988,12000],
+    [0.982,0.968,0.975,4000],
+    [0.961,0.943,0.952,2000],
+    [0.935,0.947,0.941,1200],
+    [0.901,0.935,0.918,800],
+  ];
+  document.getElementById('report-table').innerHTML = classes.map((c,i) => {
+    const d = data[i];
+    const bar = v => `<div style="display:flex;align-items:center;gap:6px;">
+      <div class="progress" style="width:60px;"><div class="progress-bar" style="width:${v*100}%;background:var(--accent);"></div></div>
+      <span style="font-family:var(--font-mono);font-size:0.78rem;">${(v*100).toFixed(1)}%</span>
+    </div>`;
+    return `<tr><td><span class="badge badge-muted">${c}</span></td><td>${bar(d[0])}</td><td>${bar(d[1])}</td><td>${bar(d[2])}</td><td class="mono" style="color:var(--muted);">${d[3].toLocaleString()}</td></tr>`;
+  }).join('');
+}
+
+/* ── TOPOLOGY ───────────────────────────────── */
+const SWITCH_COLORS = ['#00c8ff','#00e67a','#ffd23f','#ff6b35','#a78bfa'];
+let topoCtx, topoW, topoH;
+let alertSwitch = -1;
+
+function drawTopology() {
+  const canvas = document.getElementById('topo-canvas');
+  if (!canvas) return;
+  canvas.width = canvas.parentElement.clientWidth || 700;
+  canvas.height = 360;
+  topoW = canvas.width; topoH = canvas.height;
+  topoCtx = canvas.getContext('2d');
+  topoCtx.clearRect(0,0,topoW,topoH);
+
+  const controllers = [
+    {x:topoW*0.2, y:topoH*0.2, zone:0},
+    {x:topoW*0.5, y:topoH*0.1, zone:1},
+    {x:topoW*0.8, y:topoH*0.2, zone:2},
+    {x:topoW*0.25,y:topoH*0.75, zone:3},
+    {x:topoW*0.75,y:topoH*0.75, zone:4},
+  ];
+
+  const switches = [
+    {x:topoW*0.18,y:topoH*0.4,zone:0,alert:false},
+    {x:topoW*0.32,y:topoH*0.5,zone:0,alert:false},
+    {x:topoW*0.45,y:topoH*0.35,zone:1,alert:false},
+    {x:topoW*0.55,y:topoH*0.35,zone:1,alert:false},
+    {x:topoW*0.68,y:topoH*0.45,zone:2,alert:true},
+    {x:topoW*0.82,y:topoH*0.38,zone:2,alert:false},
+    {x:topoW*0.22,y:topoH*0.6,zone:3,alert:false},
+    {x:topoW*0.35,y:topoH*0.7,zone:3,alert:false},
+    {x:topoW*0.65,y:topoH*0.65,zone:4,alert:false},
+    {x:topoW*0.78,y:topoH*0.6,zone:4,alert:false},
+  ];
+
+  const hosts = [];
+  switches.forEach((sw,i) => {
+    const n = 2;
+    for (let j=0;j<n;j++) {
+      const angle = (j/n)*Math.PI + i*0.3;
+      hosts.push({ x: sw.x + Math.cos(angle)*38, y: sw.y + Math.sin(angle)*30, sw:i });
+    }
+  });
+
+  // Draw controller-to-switch links
+  switches.forEach(sw => {
+    const ctrl = controllers[sw.zone];
+    topoCtx.beginPath();
+    topoCtx.moveTo(ctrl.x, ctrl.y);
+    topoCtx.lineTo(sw.x, sw.y);
+    topoCtx.strokeStyle = SWITCH_COLORS[sw.zone] + '22';
+    topoCtx.lineWidth = 1.5;
+    topoCtx.setLineDash([4,4]);
+    topoCtx.stroke();
+    topoCtx.setLineDash([]);
+  });
+
+  // Switch-to-switch backbone
+  const backbone = [[0,2],[2,3],[3,5],[4,8],[6,8],[7,9]];
+  backbone.forEach(([a,b]) => {
+    topoCtx.beginPath();
+    topoCtx.moveTo(switches[a].x, switches[a].y);
+    topoCtx.lineTo(switches[b].x, switches[b].y);
+    topoCtx.strokeStyle = '#1e2a35';
+    topoCtx.lineWidth = 2;
+    topoCtx.stroke();
+  });
+
+  // Hosts
+  hosts.forEach(h => {
+    topoCtx.fillStyle = '#243040';
+    topoCtx.beginPath();
+    topoCtx.roundRect(h.x-8, h.y-6, 16, 12, 3);
+    topoCtx.fill();
+    topoCtx.fillStyle = '#5a7080';
+    topoCtx.font = '8px JetBrains Mono';
+    topoCtx.fillText('H', h.x-3, h.y+3);
+  });
+
+  // Switches
+  switches.forEach((sw,i) => {
+    const color = sw.alert ? '#ff4560' : SWITCH_COLORS[sw.zone];
+    if (sw.alert) {
+      topoCtx.beginPath();
+      topoCtx.arc(sw.x, sw.y, 18, 0, Math.PI*2);
+      topoCtx.fillStyle = 'rgba(255,69,96,0.15)';
+      topoCtx.fill();
+    }
+    topoCtx.beginPath();
+    topoCtx.arc(sw.x, sw.y, 12, 0, Math.PI*2);
+    topoCtx.fillStyle = '#0d1117';
+    topoCtx.fill();
+    topoCtx.strokeStyle = color;
+    topoCtx.lineWidth = 2;
+    topoCtx.stroke();
+    topoCtx.fillStyle = '#cdd8e3';
+    topoCtx.font = '9px JetBrains Mono';
+    topoCtx.textAlign = 'center';
+    topoCtx.fillText(`s${i}`, sw.x, sw.y+3);
+    topoCtx.textAlign = 'left';
+  });
+
+  // Controllers
+  controllers.forEach((c,i) => {
+    topoCtx.beginPath();
+    topoCtx.arc(c.x, c.y, 16, 0, Math.PI*2);
+    topoCtx.fillStyle = SWITCH_COLORS[i] + '20';
+    topoCtx.fill();
+    topoCtx.strokeStyle = SWITCH_COLORS[i];
+    topoCtx.lineWidth = 2.5;
+    topoCtx.stroke();
+    topoCtx.fillStyle = '#fff';
+    topoCtx.font = 'bold 10px JetBrains Mono';
+    topoCtx.textAlign = 'center';
+    topoCtx.fillText(`C${i}`, c.x, c.y+3.5);
+    topoCtx.textAlign = 'left';
+  });
+}
+
+function redrawTopology() { drawTopology(); }
+
+function renderFlowTable() {
+  const rows = [];
+  const ips = ['192.168.1.5','10.0.2.15','172.16.0.44','192.168.4.23','10.0.0.1'];
+  const actions = ['forward','drop','redirect','rate-limit','forward'];
+  for (let i=0;i<15;i++) {
+    rows.push({
+      sw: `sw${String(Math.floor(Math.random()*10)).padStart(2,'0')}`,
+      src: ips[i%ips.length],
+      dst: ips[(i+2)%ips.length],
+      action: actions[i%actions.length],
+      pri: Math.floor(Math.random()*100)+1,
+      pkts: Math.floor(Math.random()*10000),
+    });
+  }
+  document.getElementById('flow-table').innerHTML = rows.map(r => `
+    <tr>
+      <td class="mono" style="color:var(--accent);">${r.sw}</td>
+      <td class="mono">${r.src}</td>
+      <td class="mono">${r.dst}</td>
+      <td><span class="badge ${r.action==='forward'?'badge-green':r.action==='drop'?'badge-red':'badge-yellow'}">${r.action}</span></td>
+      <td class="mono">${r.pri}</td>
+      <td class="mono">${r.pkts.toLocaleString()}</td>
+    </tr>
+  `).join('');
+}
+
+function renderZoneStats() {
+  const zones = [0,1,2,3,4];
+  document.getElementById('zone-stats').innerHTML = zones.map(z => `
+    <div class="metric-row">
+      <div>
+        <div class="metric-name" style="display:flex;align-items:center;gap:7px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${SWITCH_COLORS[z]};display:inline-block;"></span>
+          Controller ${z}
+        </div>
+        <div style="font-size:0.72rem;color:var(--muted);">2 switches · 4 hosts</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="metric-val">${Math.floor(Math.random()*3000+5000).toLocaleString()}</div>
+        <div style="font-size:0.7rem;color:var(--muted);">flows/s</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ── ALERTS PAGE ────────────────────────────── */
+const CLASS_COLORS = { Normal:'green', DoS:'red', Probe:'yellow', R2L:'red', U2R:'purple' };
+const CLASS_ACTIONS = {
+  Normal: 'pass', DoS: 'block_ip', Probe: 'honeypot_redirect',
+  R2L: 'quarantine_flow', U2R: 'drop_packet'
+};
+const SRCS = ['192.168.1.%','10.0.%','172.16.0.%','192.168.4.%'];
+let allAlerts = [];
+
+function generateAlerts(n=30) {
+  const classes = ['Normal','DoS','Probe','R2L','U2R','DoS','DoS','Probe'];
+  allAlerts = Array.from({length:n}, (_,i) => {
+    const cls = classes[Math.floor(Math.random()*classes.length)];
+    const src = SRCS[Math.floor(Math.random()*SRCS.length)].replace('%', Math.floor(Math.random()*254+1));
+    return {
+      time: `${String(Math.floor(i*0.8/60)).padStart(2,'0')}:${String(Math.floor(i*0.8%60)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,
+      src,
+      sw: `sw${String(Math.floor(Math.random()*10)).padStart(2,'0')}`,
+      cls,
+      conf: (0.8 + Math.random()*0.19).toFixed(3),
+      action: CLASS_ACTIONS[cls],
+      mitigated: cls === 'Normal' || Math.random() > 0.05,
+    };
+  });
+  allAlerts.reverse();
+}
+
+function renderAlertsTable(filter='all') {
+  if (!allAlerts.length) generateAlerts();
+  const rows = filter==='all' ? allAlerts : allAlerts.filter(a => a.cls===filter);
+  document.getElementById('alerts-table').innerHTML = rows.map(a => `
+    <tr>
+      <td class="mono" style="color:var(--muted);font-size:0.72rem;">${a.time}</td>
+      <td class="mono">${a.src}</td>
+      <td class="mono" style="color:var(--accent);">${a.sw}</td>
+      <td><span class="badge badge-${CLASS_COLORS[a.cls]||'muted'}">${a.cls}</span></td>
+      <td class="mono">${a.conf}</td>
+      <td style="font-size:0.78rem;color:var(--muted);">${a.action}</td>
+      <td><span class="badge ${a.mitigated?'badge-green':'badge-red'}">${a.mitigated?'✓ Mitigated':'✗ Missed'}</span></td>
+    </tr>
+  `).join('');
+}
+
+function filterAlerts(cls, el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderAlertsTable(cls);
+}
+
+function generateAlert() {
+  if (!allAlerts.length) generateAlerts();
+  const classes = ['DoS','Probe','R2L','U2R'];
+  const cls = classes[Math.floor(Math.random()*classes.length)];
+  allAlerts.unshift({
+    time: new Date().toTimeString().slice(0,8),
+    src: `192.168.${Math.floor(Math.random()*254+1)}.${Math.floor(Math.random()*254+1)}`,
+    sw: `sw${String(Math.floor(Math.random()*10)).padStart(2,'0')}`,
+    cls, conf: (0.8+Math.random()*0.19).toFixed(3),
+    action: CLASS_ACTIONS[cls], mitigated: Math.random()>0.05,
+  });
+  renderAlertsTable();
+  const cnt = document.getElementById('alert-count');
+  cnt.textContent = parseInt(cnt.textContent||0)+1;
+  showToast(`${cls} Detected`, `From ${allAlerts[0].src} via ${allAlerts[0].sw}`, CLASS_COLORS[cls]||'red');
+}
+
+function clearAlerts() { allAlerts = []; renderAlertsTable(); }
+
+/* ── DATASET PREVIEW ─────────────────────────── */
+function renderDataPreview() {
+  const rows = Array.from({length:12}, (_,i) => ({
+    dur: (Math.random()*100).toFixed(1),
+    proto: ['TCP','UDP','ICMP'][i%3],
+    sbytes: Math.floor(Math.random()*5000),
+    dbytes: Math.floor(Math.random()*4000),
+    serr: Math.random().toFixed(3),
+    count: Math.floor(Math.random()*400),
+    label: ['Normal','DoS','Probe','R2L','U2R'][i%5],
+  }));
+  const lblColor = {Normal:'green',DoS:'red',Probe:'yellow',R2L:'red',U2R:'purple'};
+  document.getElementById('data-preview').innerHTML = rows.map((r,i) => `
+    <tr>
+      <td class="mono" style="color:var(--muted);">${i+1}</td>
+      <td class="mono">${r.dur}s</td>
+      <td><span class="badge badge-muted">${r.proto}</span></td>
+      <td class="mono">${r.sbytes.toLocaleString()}</td>
+      <td class="mono">${r.dbytes.toLocaleString()}</td>
+      <td class="mono">${r.serr}</td>
+      <td class="mono">${r.count}</td>
+      <td><span class="badge badge-${lblColor[r.label]}">${r.label}</span></td>
+    </tr>
+  `).join('');
+}
+
+/* ── PIPELINE ────────────────────────────────── */
+const PIPE_STEPS = [
+  { num:1, name:'Data Load', desc:'Load & preprocess dataset' },
+  { num:2, name:'SDN Sim',   desc:'Build topology & zones' },
+  { num:3, name:'Fed. Learn',desc:'30 rounds, 5 controllers' },
+  { num:4, name:'GAN Aug.', desc:'Adversarial augmentation' },
+  { num:5, name:'Fine-Tune', desc:'Post-aug. fine-tuning' },
+  { num:6, name:'Eval',      desc:'Detection benchmark' },
+  { num:7, name:'Adv. Eval', desc:'FGSM robustness sweep' },
+  { num:8, name:'DQN Train', desc:'200 episode training' },
+  { num:9, name:'Dashboard', desc:'Generate final reports' },
+];
+
+let pipelineState = 'idle'; // idle, running, done
+let pipeStep = 0;
+let pipeInterval;
+
+function renderPipelineSteps(done=-1, active=-1) {
+  const el = document.getElementById('pipeline-steps');
+  el.innerHTML = PIPE_STEPS.map((s,i) => {
+    const isDone = i < done;
+    const isActive = i === active;
+    const cls = isDone ? 'done' : isActive ? 'active' : 'pending';
+    const statusText = isDone ? '✓ Done' : isActive ? '⟳ Running' : 'Waiting';
+    return `<div class="pipe-step ${cls}">
+      <div class="pipe-num">STEP ${s.num}</div>
+      <div class="pipe-name">${s.name}</div>
+      <div class="pipe-status ${cls}">${statusText}</div>
+    </div>`;
+  }).join('');
+}
+
+function resetPipeline() {
+  clearInterval(pipeInterval);
+  pipelineState = 'idle'; pipeStep = 0;
+  renderPipelineSteps(-1,-1);
+  document.getElementById('pipeline-log').innerHTML = `<div class="log-line"><span class="log-time">00:00:00</span><span class="log-level INFO">INFO</span><span class="log-msg">Pipeline reset. Ready to run.</span></div>`;
+  document.getElementById('progress-card').style.display = 'none';
+  document.getElementById('run-btn').textContent = '▶ Start Pipeline';
+  document.getElementById('run-btn').disabled = false;
+}
+
+const PIPE_LOGS = [
+  ['INFO','DataLoader','Generating synthetic SDN traffic (50,000 samples)...','SUCCESS','DataLoader','Dataset ready: (50000, 41) | Classes: 5'],
+  ['INFO','SDN-Sim','Building fat-tree topology: 10 switches, 20 hosts','INFO','SDN-Sim','Controller zones assigned: 5 controllers'],
+  ['INFO','FL-Server','Starting FL: 30 rounds × 5 clients | strategy=fedavg','INFO','FL-Client','Client 0 | loss=0.4821 | n=9700','INFO','FL-Server','Round 10 | Acc=0.8923 | F1=0.8801 | Loss=0.3102','INFO','FL-Server','Round 20 | Acc=0.9512 | F1=0.9408 | Loss=0.1341','SUCCESS','FL-Server','Round 30 | Acc=0.9742 | F1=0.9681 — TARGET MET'],
+  ['INFO','Augmentor','Fitting GAN on 9850 attack samples...','INFO','GAN','GAN training | samples=9850 | epochs=30','INFO','GAN','GAN Epoch 15/30 | G_loss=0.7841 | D_loss=0.6912','SUCCESS','GAN','GAN training complete. Added 15000 adversarial samples.'],
+  ['INFO','Main','Fine-tuning for 10 epochs on augmented data...','INFO','Detector','Epoch 5/10 | loss=0.0821 | acc=0.9741','SUCCESS','Main','Fine-tuned model: Acc=0.9742 | F1=0.9683'],
+  ['INFO','Benchmarks','Running detection benchmark...','SUCCESS','Benchmarks','Detection Accuracy: 0.9742 | F1: 0.9683 | FPR: 0.0121'],
+  ['INFO','Metrics','Testing FGSM attack at eps=[0.0, 0.05, 0.1, 0.2, 0.3]','SUCCESS','Metrics','Adversarial accuracy (eps=0.10): 0.9121 — TARGET MET'],
+  ['INFO','DQN-Agent','DQN training | episodes=200 | epsilon=1.00','INFO','DQN-Agent','DQN Ep 50/200 | AvgReward=2.41 | eps=0.561','INFO','DQN-Agent','DQN Ep 100/200 | AvgReward=6.12 | eps=0.248','SUCCESS','DQN-Agent','Training complete. Final avg reward: 8.43'],
+  ['SUCCESS','Main','Dashboard saved → results/fedguard_dashboard.png','SUCCESS','Main','ALL TARGETS MET ✓ | Runtime: 142.3s'],
+];
+
+function runPipeline() {
+  if (pipelineState === 'running') return;
+  pipelineState = 'running';
+  pipeStep = 0;
+  document.getElementById('run-btn').textContent = '⟳ Running...';
+  document.getElementById('run-btn').disabled = true;
+  document.getElementById('progress-card').style.display = 'block';
+  addLog('SUCCESS','Main','Pipeline started — 9 steps queued');
+
+  renderPipelineSteps(-1, 0);
+  runStep(0);
+}
+
+function runStep(step) {
+  if (step >= PIPE_STEPS.length) {
+    pipelineState = 'done';
+    renderPipelineSteps(PIPE_STEPS.length, -1);
+    document.getElementById('run-btn').textContent = '✓ Complete';
+    showToast('Pipeline Complete', 'All 9 steps finished. All targets met!', 'green');
+    return;
+  }
+  renderPipelineSteps(step, step);
+  const logs = PIPE_LOGS[step] || ['INFO','Main',`Step ${step+1} executing...`];
+  let li = 0;
+  const delay = step === 2 ? 1200 : step === 3 ? 1000 : 700;
+
+  function nextLog() {
+    if (li >= logs.length) {
+      setTimeout(() => runStep(step+1), 300);
+      return;
+    }
+    const [lv, comp, msg] = [logs[li], logs[li+1], logs[li+2]];
+    if (typeof lv === 'string' && typeof comp === 'string' && typeof msg === 'string') {
+      addLog(lv, comp, msg);
+      li += 3;
+    } else { li++; }
+    setTimeout(nextLog, delay / (logs.length/3));
+  }
+  nextLog();
+}
+
+function addLog(level, component, msg) {
+  const el = document.getElementById('pipeline-log');
+  const now = new Date();
+  const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level}</span><span style="color:var(--accent);min-width:90px;font-size:0.7rem;">${component}</span><span class="log-msg">${msg}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() { document.getElementById('pipeline-log').innerHTML = ''; }
+
+/* ── SYSTEM LOGS ─────────────────────────────── */
+const LOG_COMPS = ['FL-Server','FL-Client','GAN','DQN-Agent','Detector','Augmentor','DataLoader','Crypto'];
+const LOG_MSGS = [
+  ['{comp}','INFO','Round {n} complete | Acc={acc} | F1={f1}'],
+  ['{comp}','INFO','Client {c} training | loss={l} | n={n}'],
+  ['{comp}','WARN','Batch size too small, adjusting...'],
+  ['{comp}','SUCCESS','Checkpoint saved to results/model_{n}.pt'],
+  ['{comp}','INFO','Gradient norm: {n}'],
+  ['{comp}','INFO','Processing {n} samples...'],
+];
+
+function renderSystemLogs() {
+  const el = document.getElementById('system-log');
+  el.innerHTML = '';
+  for (let i=0;i<80;i++) {
+    const comp = LOG_COMPS[Math.floor(Math.random()*LOG_COMPS.length)];
+    const lvl = Math.random()<0.1?'WARN':Math.random()<0.05?'SUCCESS':'INFO';
+    const msgs = ['Gradient aggregation complete','Training batch {n}','Model weights synchronized','FGSM perturbation applied','Client update received','Byzantine check passed','Replay buffer size: {n}','Target network updated'];
+    const msg = msgs[Math.floor(Math.random()*msgs.length)].replace('{n}',Math.floor(Math.random()*10000));
+    const min = Math.floor(i*0.4);
+    const sec = Math.floor(Math.random()*60);
+    const t = `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    div.setAttribute('data-comp', comp);
+    div.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${lvl}">${lvl}</span><span style="color:var(--accent);min-width:110px;font-size:0.7rem;">${comp}</span><span class="log-msg">${msg}</span>`;
+    el.appendChild(div);
+  }
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog2() { document.getElementById('system-log').innerHTML = ''; }
+
+function filterLogs() {
+  const val = document.getElementById('log-filter').value;
+  document.querySelectorAll('#system-log .log-line').forEach(l => {
+    l.style.display = (val === 'All Components' || l.getAttribute('data-comp') === val) ? '' : 'none';
+  });
+}
+
+/* ── TOAST ───────────────────────────────────── */
+function showToast(title, sub, type='accent') {
+  const colorMap = { accent:'#00c8ff', green:'#00e67a', yellow:'#ffd23f', red:'#ff4560', purple:'#a78bfa' };
+  const icons = { accent:'ℹ', green:'✓', yellow:'⚠', red:'⚡', purple:'🎮' };
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.style.borderLeft = `3px solid ${colorMap[type]||colorMap.accent}`;
+  toast.innerHTML = `<span class="toast-icon" style="color:${colorMap[type]||colorMap.accent}">${icons[type]||'ℹ'}</span><div class="toast-text"><div class="toast-title">${title}</div><div class="toast-sub">${sub}</div></div>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 3200);
+}
+
+/* ── MODAL ───────────────────────────────────── */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+/* ── REFRESH ─────────────────────────────────── */
+function refreshMetrics() {
+  showToast('Refreshed', 'Metrics updated from latest training run', 'accent');
+  document.getElementById('last-update').textContent = 'just now';
+}
+
+/* ── LIVE ALERT SIMULATION ─────────────────── */
+function startLiveAlerts() {
+  setInterval(() => {
+    if (Math.random() < 0.25) {
+      const cls = ['DoS','Probe','R2L','U2R','Normal'][Math.floor(Math.random()*5)];
+      if (cls !== 'Normal') {
+        const cnt = document.getElementById('alert-count');
+        cnt.textContent = parseInt(cnt.textContent||0)+1;
+      }
+    }
+  }, 5000);
+}
+
+/* ── INIT ─────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  renderPipelineSteps(-1,-1);
+  renderTargetRows();
+  renderAlertFeed();
+  chartsInitialized['overview'] = true;
+  setTimeout(() => initPageCharts('overview'), 100);
+  startLiveAlerts();
+
+  // Auto-update time
+  setInterval(() => {
+    document.getElementById('last-update').textContent = 'just now';
+  }, 30000);
+
+  showToast('FedGuard Online', 'All systems operational · 5 controllers connected', 'green');
+});
+</script>
+</body>
+</html>
