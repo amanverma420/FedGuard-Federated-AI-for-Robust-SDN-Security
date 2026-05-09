@@ -93,7 +93,7 @@ def plot_confusion_matrix(cm, save=True):
 def plot_adversarial_robustness(results, save=True):
     _dark()
     fig, ax = plt.subplots(figsize=(9, 5))
-    eps  = list(results.keys())
+    eps  = list(results.keys()) 
     accs = [results[e]["accuracy"] for e in eps]
     f1s  = [results[e]["macro_f1"] for e in eps]
     ax.plot(eps, accs, color=C["primary"],   lw=2.5, marker="o", label="Accuracy")

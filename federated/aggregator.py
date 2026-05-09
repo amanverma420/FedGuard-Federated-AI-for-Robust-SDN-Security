@@ -3,7 +3,6 @@ from utils.logger import get_logger
 
 logger = get_logger("Aggregator")
 
-
 def fedavg(client_updates):
     total_samples = sum(u["n_samples"] for u in client_updates)
     n_layers = len(client_updates[0]["weights"])

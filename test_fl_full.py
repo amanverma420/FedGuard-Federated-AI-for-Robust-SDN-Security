@@ -9,7 +9,7 @@ config.LOCAL_EPOCHS      = 5
 config.LOCAL_BATCH_SIZE  = 128
 config.BYZANTINE_DEFENSE = "fedavg"
 config.NUM_BYZANTINE     = 0
-config.ENCRYPT_GRADIENTS = False   # skip for speed
+config.ENCRYPT_GRADIENTS = False  
 
 from data.synthetic_generator import generate_dataset, split_for_clients
 from data.preprocessor import SDNPreprocessor

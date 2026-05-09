@@ -8,7 +8,6 @@ import config
 
 logger = get_logger("Detector")
 
-
 class IntrusionDetector(nn.Module):
     def __init__(
         self,
