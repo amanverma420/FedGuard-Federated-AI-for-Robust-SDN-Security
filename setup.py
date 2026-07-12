@@ -37,7 +37,7 @@ setup(
     entry_points={
         "console_scripts": [
             "fedguard=main:main",
-            "fedguard-gui=app:main",
+            "fedguard-gui=launch_gui:launch_gui",
         ],
     },
     include_package_data=True,
